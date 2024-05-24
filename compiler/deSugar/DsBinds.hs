@@ -72,6 +72,8 @@ import MonadUtils
 import qualified GHC.LanguageExtensions as LangExt
 import Control.Monad
 
+import GNNUtils --- uoe
+
 {-**********************************************************************
 *                                                                      *
            Desugaring a MonoBinds
@@ -128,6 +130,8 @@ dsHsBind :: DynFlags
          -- ^ The Ids of strict binds, to be forced in the body of the
          -- binding group see Note [Desugar Strict binds] and all
          -- bindings and their desugared right hand sides.
+
+
 
 dsHsBind dflags (VarBind { var_id = var
                          , var_rhs = expr
@@ -362,6 +366,8 @@ dsAbsBinds dflags tyvars dicts exports
                      , abe_wrap  = WpHole
                      , abe_prags = SpecPrags [] })
 
+data PredPair = PredPair { predobj :: Predictions, predbool :: Bool }
+
 -- | This is where we apply INLINE and INLINABLE pragmas. All we need to
 -- do is to attach the unfolding information to the Id.
 --
@@ -379,12 +385,36 @@ makeCorePair dflags gbl_id is_default_method dict_arity rhs
 
   | otherwise
   = case inlinePragmaSpec inline_prag of
-          NoUserInline -> (gbl_id, rhs)
+          NoUserInline -> if (predbool predpair) -------- Do default behavior if no predictions are passed in at cmd line
+                            -- If the current file and function name are present in the inlining predictions,
+                            -- attach a pragma.
+                            -- The commented line with "INLINE" can be uncommented, and comment lines added to the 
+                            -- "INLINABLE" flag, to swap between the two types when adding the pragma. They will be all 
+                            -- one or the other, of course.
+                            then if inpredict
+                                    -- then trace ("INLINE " ++ show fn_occname) inline_pair
+                                    then trace ("INLINABLE " ++ show fn_occname) (gbl_id `setIdUnfolding` inlinable_unf, rhs) 
+                                    else (gbl_id, rhs)  
+                            else (gbl_id, rhs)
           NoInline     -> (gbl_id, rhs)
           Inlinable    -> (gbl_id `setIdUnfolding` inlinable_unf, rhs)
           Inline       -> inline_pair
 
   where
+    ------------- Begin modification block, uoe
+    srcfilename = case srcspan of     ---- get the file name to check for inlining recommendation function names
+                    RealSrcSpan span  -> srcSpanFile span
+                    UnhelpfulSpan str -> str
+    srcspan = (n_loc (idName gbl_id)) 
+    occname = Id.idName gbl_id
+    fn_occname = (occNameFS (n_occ occname)) ---- the function name 
+    maybe_predictions = predinfo dflags
+    predpair = case maybe_predictions of
+                     Nothing -> PredPair { predobj = Predictions{fileobjects=[]}, predbool = False }
+                     Just a  -> PredPair { predobj = a, predbool = True }
+    inpredict = (inPredictions (show srcfilename) (show fn_occname) (fileobjects (predobj predpair)))
+    -------------- End modification block, uoe
+    --
     inline_prag   = idInlinePragma gbl_id
     inlinable_unf = mkInlinableUnfolding dflags rhs
     inline_pair

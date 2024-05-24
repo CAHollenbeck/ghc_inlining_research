@@ -360,6 +360,8 @@ hscParse' mod_summary
                                    ppr rdr_module
             liftIO $ dumpIfSet_dyn dflags Opt_D_dump_parsed_ast "Parser AST" $
                                    showAstData NoBlankSrcSpan rdr_module
+            liftIO $ dumpIfSet_dyn dflags Opt_D_dump_parsed_json_ast "Parser AST JSON" $ -- uoe
+                                   showAstJsonData NoBlankSrcSpan rdr_module            -- uoe
             liftIO $ dumpIfSet_dyn dflags Opt_D_source_stats "Source Statistics" $
                                    ppSourceStats False rdr_module
             when (not $ isEmptyBag errs) $ throwErrors errs
@@ -412,6 +414,8 @@ extract_renamed_stuff mod_summary tc_result = do
     let rn_info = getRenamedStuff tc_result
 
     dflags <- getDynFlags
+    liftIO $ dumpIfSet_dyn dflags Opt_D_dump_rn_mod_ast "Renamed & Modified" $ -- uoe
+                           showAstJsonData NoBlankSrcSpan rn_info -- uoe
     liftIO $ dumpIfSet_dyn dflags Opt_D_dump_rn_ast "Renamer" $
                            showAstData NoBlankSrcSpan rn_info
 
@@ -1851,12 +1855,15 @@ hscParseThingWithLocation source linenumber parser str
 
     case unP parser (mkPState dflags buf loc) of
         PFailed pst -> do
+            when (dopt Opt_D_dump_parsed_json_ast dflags) $ handleWarningsThrowErrors (getMessages pst dflags)
             handleWarningsThrowErrors (getMessages pst dflags)
 
         POk pst thing -> do
             logWarningsReportErrors (getMessages pst dflags)
             liftIO $ dumpIfSet_dyn dflags Opt_D_dump_parsed "Parser" (ppr thing)
             liftIO $ dumpIfSet_dyn dflags Opt_D_dump_parsed_ast "Parser AST" $
+                                   showAstData NoBlankSrcSpan thing
+            liftIO $ dumpIfSet_dyn dflags Opt_D_dump_parsed_json_ast "Parser AST JSON 2" $
                                    showAstData NoBlankSrcSpan thing
             return thing
 

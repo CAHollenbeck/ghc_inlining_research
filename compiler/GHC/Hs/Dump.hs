@@ -12,6 +12,7 @@
 module GHC.Hs.Dump (
         -- * Dumping ASTs
         showAstData,
+        showAstJsonData, --uoe
         BlankSrcSpan(..),
     ) where
 
@@ -39,6 +40,139 @@ data BlankSrcSpan = BlankSrcSpan | NoBlankSrcSpan
 -- | Show a GHC syntax tree. This parameterised because it is also used for
 -- comparing ASTs in ppr roundtripping tests, where the SrcSpan's are blanked
 -- out, to avoid comparing locations, only structure
+showAstJsonData :: Data a => BlankSrcSpan -> a -> SDoc  -- uoe : added this function
+showAstJsonData b a0 = blankLine $$ showAstData' a0
+  where
+    showAstData' :: Data a => a -> SDoc
+    showAstData' =
+      generic
+              `ext1Q` list
+              `extQ` string `extQ` fastString `extQ` srcSpan
+              `extQ` lit `extQ` litr `extQ` litt
+              `extQ` bytestring
+              `extQ` name `extQ` occName `extQ` moduleName `extQ` var
+              `extQ` dataCon
+              `extQ` bagName `extQ` bagRdrName `extQ` bagVar `extQ` nameSet
+              `extQ` fixity
+              `ext2Q` located
+
+      where generic :: Data a => a -> SDoc
+            generic t = parens $ text ("\"" ++ (showConstr (toConstr t)) ++ "\"") -- uoe
+                                  $$ vcat (gmapQ showAstData' t)
+
+            string :: String -> SDoc
+            string     = text . normalize_newlines . show
+
+            fastString :: FastString -> SDoc
+            fastString s = braces $
+                            text "\"FastString:\" "   -- uoe
+                         <> text "\"FASTSTRING\"" -- text (normalize_newlines . show $ s ) -- uoe
+
+            bytestring :: B.ByteString -> SDoc
+            bytestring = text . normalize_newlines . show
+
+            list []    = brackets empty
+            list [x]   = brackets (showAstData' x)
+            list (x1 : x2 : xs) =  (text "[" <> showAstData' x1)
+                                $$ go x2 xs
+              where
+                go y [] = text "," <> showAstData' y <> text "]"
+                go y1 (y2 : ys) = (text "," <> showAstData' y1) $$ go y2 ys
+
+            -- Eliminate word-size dependence
+            lit :: HsLit GhcPs -> SDoc
+            lit (HsWordPrim   s x) = numericLit "HsWord{64}Prim" x s
+            lit (HsWord64Prim s x) = numericLit "HsWord{64}Prim" x s
+            lit (HsIntPrim    s x) = numericLit "HsInt{64}Prim"  x s
+            lit (HsInt64Prim  s x) = numericLit "HsInt{64}Prim"  x s
+            lit l                  = generic l
+
+            litr :: HsLit GhcRn -> SDoc
+            litr (HsWordPrim   s x) = numericLit "HsWord{64}Prim" x s
+            litr (HsWord64Prim s x) = numericLit "HsWord{64}Prim" x s
+            litr (HsIntPrim    s x) = numericLit "HsInt{64}Prim"  x s
+            litr (HsInt64Prim  s x) = numericLit "HsInt{64}Prim"  x s
+            litr l                  = generic l
+
+            litt :: HsLit GhcTc -> SDoc
+            litt (HsWordPrim   s x) = numericLit "HsWord{64}Prim" x s
+            litt (HsWord64Prim s x) = numericLit "HsWord{64}Prim" x s
+            litt (HsIntPrim    s x) = numericLit "HsInt{64}Prim"  x s
+            litt (HsInt64Prim  s x) = numericLit "HsInt{64}Prim"  x s
+            litt l                  = generic l
+
+            numericLit :: String -> Integer -> SourceText -> SDoc
+            numericLit tag x s = braces $ hsep [ text tag
+                                               , generic x
+                                               , generic s ]
+
+            name :: Name -> SDoc
+            name nm    = braces $ text "Name: " <> ppr nm  
+
+            occName n  =  braces $
+                          text "OccName: " -- uoe
+                       <> text ((OccName.occNameString n)) -- uoe
+
+            moduleName :: ModuleName -> SDoc
+            moduleName m = braces $ text "ModuleName: " <> ppr (m) -- uoe
+
+            srcSpan :: SrcSpan -> SDoc
+            srcSpan ss = case b of
+             BlankSrcSpan -> text "{ ss }" -- uoe
+             NoBlankSrcSpan -> braces $ text "LINENUMBERS" <> -- char ' ' <> -- uoe
+                             (hang (ppr ss) 1
+                                   -- TODO: show annotations here
+                                   (text "")) 
+
+            --srcSpan :: SrcSpan -> SDoc
+            --srcSpan ss = case b of
+            -- BlankSrcSpan -> text "{ ss }" -- uoe
+            -- NoBlankSrcSpan -> braces $ text "File:lines-lines" -- char ' ' <>
+            -- --                (hang (ppr ss) 1
+            -- --                      -- TODO: show annotations here
+            -- --                      (text "")) 
+
+            var  :: Var -> SDoc
+            var v      = braces $ text "Var: " <> ppr v
+
+            dataCon :: DataCon -> SDoc
+            dataCon c  = braces $ text "DataCon: " <> ppr c
+
+            bagRdrName:: Bag (Located (HsBind GhcPs)) -> SDoc
+            bagRdrName bg =  parens $ -- braces $ -- uoe 
+                             text "\"Bag(Located (HsBind GhcPs))\""  -- uoe added parens
+                          $$ (parens $ list . bagToList $ bg)  -- uoe added parens
+
+            bagName   :: Bag (Located (HsBind GhcRn)) -> SDoc
+            bagName bg  =  parens $ -- braces $ 
+                           text "\"Bag(Located (HsBind Name))\""  --uoe added parens
+                        $$ (parens $ list . bagToList $ bg) -- uoe added parens
+
+            bagVar    :: Bag (Located (HsBind GhcTc)) -> SDoc
+            bagVar bg  =  parens $ -- braces $
+                          text "\"Bag(Located (HsBind Var))\""  -- uoe added parens
+                       $$ (parens $ list . bagToList $ bg) -- uoe added parens
+
+            nameSet ns =  parens $ -- braces $
+                          text "\"NameSet\""  -- uoe added parens
+                       $$ (parens $ list . nameSetElemsStable $ ns) -- uoe added parens
+
+            fixity :: Fixity -> SDoc
+            fixity fx =  braces $
+                         text "Fixity: "
+                      <> ppr fx
+
+            located :: (Data b,Data loc) => GenLocated loc b -> SDoc
+            located (L ss a) = parens $
+                   case cast ss of
+                        Just (s :: SrcSpan) ->
+                          srcSpan s
+                        Nothing -> text "nnnnnnnn"
+                      $$ showAstData' a
+
+-- | Show a GHC syntax tree. This parameterised because it is also used for
+-- comparing ASTs in ppr roundtripping tests, where the SrcSpan's are blanked
+-- out, to avoid comparing locations, only structure
 showAstData :: Data a => BlankSrcSpan -> a -> SDoc
 showAstData b a0 = blankLine $$ showAstData' a0
   where
@@ -56,7 +190,7 @@ showAstData b a0 = blankLine $$ showAstData' a0
               `ext2Q` located
 
       where generic :: Data a => a -> SDoc
-            generic t = parens $ text (showConstr (toConstr t))
+            generic t = parens $ text (showConstr (toConstr t)) -- uoe
                                   $$ vcat (gmapQ showAstData' t)
 
             string :: String -> SDoc
@@ -130,7 +264,7 @@ showAstData b a0 = blankLine $$ showAstData' a0
             dataCon c  = braces $ text "DataCon: " <> ppr c
 
             bagRdrName:: Bag (Located (HsBind GhcPs)) -> SDoc
-            bagRdrName bg =  braces $
+            bagRdrName bg =  braces $ 
                              text "Bag(Located (HsBind GhcPs)):"
                           $$ (list . bagToList $ bg)
 

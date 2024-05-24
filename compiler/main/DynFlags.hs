@@ -248,6 +248,8 @@ module DynFlags (
 
 #include "HsVersions.h"
 
+import GNNUtils --- uoe
+
 import GhcPrelude
 
 import GHC.Platform
@@ -450,6 +452,8 @@ data DumpFlag
    | Opt_D_dump_occur_anal
    | Opt_D_dump_parsed
    | Opt_D_dump_parsed_ast
+   | Opt_D_dump_parsed_json_ast -- uoe
+   | Opt_D_dump_rn_mod_ast -- uoe
    | Opt_D_dump_rn
    | Opt_D_dump_rn_ast
    | Opt_D_dump_simpl
@@ -959,6 +963,7 @@ instance Outputable SafeHaskellMode where
 -- | Contains not only a collection of 'GeneralFlag's but also a plethora of
 -- information relating to the compilation of a single file or GHC session
 data DynFlags = DynFlags {
+  predinfo              :: Maybe Predictions,--- uoe
   ghcMode               :: GhcMode,
   ghcLink               :: GhcLink,
   hscTarget             :: HscTarget,
@@ -1944,6 +1949,7 @@ defaultDynFlags :: Settings -> LlvmConfig -> DynFlags
 defaultDynFlags mySettings llvmConfig =
 -- See Note [Updating flag description in the User's Guide]
      DynFlags {
+        predinfo                = Nothing,--- uoe
         ghcMode                 = CompManager,
         ghcLink                 = LinkBinary,
         hscTarget               = defaultHscTarget (sTargetPlatform mySettings) (sPlatformMisc mySettings),
@@ -3197,6 +3203,11 @@ dynamic_flags_deps = [
   , make_ord_flag defGhcFlag "dynamic-too"
         (NoArg (setGeneralFlag Opt_BuildDynamicToo))
 
+  -------------- uoe
+  , make_ord_flag defGhcFlag "predinfo"
+        (HasArg (\s -> upd (\d -> d { predinfo = trace s getPredsFromFlag s }
+           )))
+  ------------- end uoe
         ------- Keeping temporary files -------------------------------------
      -- These can be singular (think ghc -c) or plural (think ghc --make)
   , make_ord_flag defGhcFlag "keep-hc-file"
@@ -3407,6 +3418,10 @@ dynamic_flags_deps = [
         (setDumpFlag Opt_D_dump_parsed)
   , make_ord_flag defGhcFlag "ddump-parsed-ast"
         (setDumpFlag Opt_D_dump_parsed_ast)
+  , make_ord_flag defGhcFlag "ddump-parsed-json-ast" -- uoe
+        (setDumpFlag Opt_D_dump_parsed_json_ast)          -- uoe 
+  , make_ord_flag defGhcFlag "ddump-rn-mod-ast" -- uoe
+        (setDumpFlag Opt_D_dump_rn_mod_ast)     -- uoe
   , make_ord_flag defGhcFlag "ddump-rn"
         (setDumpFlag Opt_D_dump_rn)
   , make_ord_flag defGhcFlag "ddump-rn-ast"
