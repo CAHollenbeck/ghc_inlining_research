@@ -15,7 +15,16 @@ and build with hadrian.
 HOW TO REPRODUCE:
 
 1. Build compiler.
-    (Small instruction. Lengthy task.)
+    Small instruction. Lengthy task. It's Make, so:
+
+        ./boot
+        ./configure
+        make -jn
+
+        Then I get a haddock error and ignore it (forgive me) by
+
+        cd compiler
+        make -jn
 
 2. Get the source code for loop-0.3.0
     For example:
