@@ -31,7 +31,7 @@ HOW TO REPRODUCE:
     Execute the command twice to rule out compilation time, of course.
     
     To see the time with the binary:
-        time (cabal new-test all --with-compiler=/home/celeste/GHCs/ghc_inlining_research/inplace/bin/ghc-stage2 --ghc-option=-predinfo=<path/to/loop_onego.bin>)
+        time (cabal new-test all --with-compiler=<path/to/compiler>/ghc-stage2 --ghc-option=-predinfo=<path/to/loop_onego.bin>)
 
 
 
