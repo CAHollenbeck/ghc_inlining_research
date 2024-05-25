@@ -1,6 +1,9 @@
 **** I tried this on GHC 9.8.2 and the issue WAS NOT THERE. It seems it was fixed in the last ~4 years.
-Regardless, the files to read the inlining binaries for GHC 9.8.2 are in PROBLEM_NOTES/NEWER_GHC_FILES. 
-To build on that version of GHC, they just need to be copied over, add GNNUtils to the Exposed Modules, 
+Regardless, the files to read the inlining binaries for GHC 9.8.2 are in PROBLEM_NOTES/NEWER_GHC_FILES.
+All of my changes are marked with "-- uoe N1/N2" where N1 is this comment number and N2 is the number of 
+total comments.
+
+To build on that version of GHC, the files just need to be copied over, add GNNUtils to the Exposed Modules, 
 and build with hadrian.
 
 
