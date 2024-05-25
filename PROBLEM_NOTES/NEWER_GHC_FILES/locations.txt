@@ -1,0 +1,11 @@
+Remember to add GNNUtils to exposed modules in ghc.cabal.in
+
+	modified:   compiler/GHC/Driver/DynFlags.hs
+	modified:   compiler/GHC/Driver/Session.hs
+	modified:   compiler/GHC/HsToCore/Binds.hs
+	modified:   compiler/GHC/Types/Name.hs
+	modified:   compiler/ghc.cabal.in
+
+Untracked files:
+	compiler/GHC/GNNUtils.hs
+
