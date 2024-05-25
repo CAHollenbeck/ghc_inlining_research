@@ -37,7 +37,7 @@ HOW TO REPRODUCE:
 3. Build and time loop-0.3.0 with and without the binary to compare.
 
     To see the time without the binary:
-        time (cabal new-test all --with-compiler=/home/celeste/GHCs/ghc_inlining_research/inplace/bin/ghc-stage2)
+        time (cabal new-test all --with-compiler=<path/to/compiler>/ghc-stage2)
     
     Note that not passing a flag for the binary will make GHC build normally.
     Execute the command twice to rule out compilation time, of course.
